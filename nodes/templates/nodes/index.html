@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Node Tree Manager</title>
+<style>
+    body { 
+        font-family: Arial, sans-serif; 
+        background: #f9f9f9; 
+        margin: 0; 
+        display: flex; 
+        justify-content: center; 
+        padding: 40px 20px;
+    }
+    .container {
+        max-width: 800px;
+        width: 100%;
+        background: #fff;
+        padding: 20px 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    h1 { 
+        text-align: center; 
+        color: #333; 
+        margin-bottom: 20px;
+    }
+    ul { 
+        list-style-type: none; 
+        padding-left: 20px; 
+    }
+    li { 
+        margin: 4px 0; 
+    }
+    li ul { display: none; margin-left: 20px; }
+    li.expanded > ul { display: block; }
+
+    .node-container {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .node-name { 
+        font-weight: 500; 
+        cursor: pointer; 
+    }
+    .node-actions {
+        display: inline-flex;
+        gap: 3px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+    }
+    .node-container:hover .node-actions {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .node-actions button {
+        background: #f0f0f0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .node-actions button:hover {
+        background: #e0e0e0;
+        border-color: #999;
+    }
+    .node-actions button:active {
+        background: #d0d0d0;
+    }
+    #edit-modal, #prompt-modal, #tree-prompt-modal {
+        display: none;
+        position: fixed;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        background: #fff;
+        border: 1px solid #333;
+        padding: 20px;
+        z-index: 1000;
+        width: 600px;
+        max-height: 80%;
+        overflow-y: auto;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+        border-radius: 8px;
+    }
+    #edit-modal textarea, #prompt-modal textarea, #tree-prompt-modal textarea { 
+        width: 100%; 
+        height: 400px; 
+        font-family: monospace; 
+    }
+    #modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.4);
+        z-index: 900;
+    }
+</style>
+</head>
+<body>
+<a href="/videos" style="
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    font-size: 24px;
+    text-decoration: none;
+">
+    🎬
+</a>
+
+<div class="container">
+    <h1>Node Tree Manager</h1>
+    <div id="tree-container"></div>
+</div>
+
+<!-- Overlay -->
+<div id="modal-overlay"></div>
+
+<!-- Edit Modal -->
+<div id="edit-modal">
+    <h3>Edit Subtree</h3>
+    <textarea id="edit-textarea"></textarea><br><br>
+    <button id="save-btn">Save</button>
+    <button id="cancel-btn">Cancel</button>
+</div>
+
+<!-- LLM Prompt Modal -->
+<div id="prompt-modal">
+    <h3>LLM YouTube Search Prompt</h3>
+    <textarea id="prompt-textarea" readonly></textarea><br><br>
+    <button id="copy-prompt-btn">Copy to Clipboard</button>
+    <button id="close-prompt-btn">Close</button>
+</div>
+
+<!-- Tree JSON Prompt Modal -->
+<div id="tree-prompt-modal">
+    <h3>Generate Tree JSON Prompt</h3>
+    <textarea id="tree-prompt-textarea" readonly></textarea><br><br>
+    <button id="copy-tree-prompt-btn">Copy to Clipboard</button>
+    <button id="close-tree-prompt-btn">Close</button>
+</div>
+
+<script>
+const expandedNodes = new Set(); // Track expanded node IDs globally
+
+async function fetchTree() {
+    const res = await fetch('tree');
+    const data = await res.json();
+    const container = document.getElementById('tree-container');
+    container.innerHTML = '';
+    data.forEach(node => container.appendChild(renderNode(node)));
+}
+
+// Render a node recursively
+function renderNode(node, parentPath = []) {
+    const li = document.createElement('li');
+
+    const nodeContainer = document.createElement('div');
+    nodeContainer.className = 'node-container';
+
+    const span = document.createElement('span');
+    span.textContent = node.name;
+    span.className = 'node-name';
+    span.onclick = () => {
+        li.classList.toggle('expanded');
+        if (li.classList.contains('expanded')) expandedNodes.add(node.id);
+        else expandedNodes.delete(node.id);
+    };
+    nodeContainer.appendChild(span);
+
+    const actionsDiv = document.createElement('span');
+    actionsDiv.className = 'node-actions';
+
+    const fullPath = [...parentPath, node.name];
+    const buttons = [
+        { icon: '➕', title: 'Add Child', onClick: async () => {
+            const name = prompt('Enter child node name:');
+            if (!name) return;
+            await fetch('node', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ parent_id: node.id, tree: { name } })
+            });
+            fetchTree();
+        }},
+        { icon: '✏️', title: 'Edit Subtree', onClick: async () => {
+            const res = await fetch(`node/${node.id}`);
+            const subtree = await res.json();
+            openEditModal(subtree, node.id);
+        }},
+        { icon: '🗑️', title: 'Delete Node', onClick: async () => {
+            if (!confirm(`Delete "${node.name}" and all its children?`)) return;
+            await fetch(`node/${node.id}`, { method: 'DELETE' });
+            fetchTree();
+        }},
+        { icon: '💡', title: 'Generate LLM Prompt', onClick: () => {
+            openPromptModal(node, fullPath);
+        }},
+        { icon: '🌳', title: 'Generate Tree JSON Prompt', onClick: () => {
+            openTreePromptModal(node, fullPath);
+        }}
+    ];
+
+    buttons.forEach(btnData => {
+        const btn = document.createElement('button');
+        btn.innerHTML = btnData.icon;
+        btn.title = btnData.title;
+        btn.onclick = btnData.onClick;
+        actionsDiv.appendChild(btn);
+    });
+
+    nodeContainer.appendChild(actionsDiv);
+    li.appendChild(nodeContainer);
+
+    if (node.children && node.children.length > 0) {
+        const ul = document.createElement('ul');
+        node.children.forEach(c => ul.appendChild(renderNode(c, fullPath)));
+        li.appendChild(ul);
+    }
+
+    if (expandedNodes.has(node.id)) li.classList.add('expanded');
+
+    return li;
+}
+
+// JSON conversion functions
+function convertToDisplayFormat(node) {
+    if (!node.children || node.children.length === 0) return node.name;
+    const obj = {};
+    node.children.forEach(child => {
+        const val = convertToDisplayFormat(child);
+        obj[child.name] = val;
+    });
+    return obj;
+}
+
+function convertToTreeFormat(d) {
+    if (typeof d === 'string') return { name: d, children: [] };
+    if (Array.isArray(d)) return d.map(convertToTreeFormat);
+    const nodes = [];
+    for (const [k, v] of Object.entries(d)) {
+        let children;
+        if (typeof v === 'string') children = [];
+        else children = convertToTreeFormat(v);
+        if (!Array.isArray(children)) children = [children];
+        nodes.push({ name: k, children });
+    }
+    return nodes.length === 1 ? nodes[0] : nodes;
+}
+
+// --- Edit Modal Logic ---
+const editModal = document.getElementById('edit-modal');
+const overlay = document.getElementById('modal-overlay');
+const textarea = document.getElementById('edit-textarea');
+let editNodeId = null;
+
+function openEditModal(subtree, nodeId) {
+    editNodeId = nodeId;
+    const displayJson = convertToDisplayFormat(subtree);
+    textarea.value = JSON.stringify(displayJson, null, 2);
+    editModal.style.display = 'block';
+    overlay.style.display = 'block';
+}
+
+document.getElementById('cancel-btn').onclick = () => {
+    editModal.style.display = 'none';
+    overlay.style.display = 'none';
+};
+
+document.getElementById('save-btn').onclick = async () => {
+    try {
+        const inputJson = JSON.parse(textarea.value);
+        const newChildren = convertToTreeFormat(inputJson);
+        const childrenArray = Array.isArray(newChildren) ? newChildren : [newChildren];
+
+        await fetch(`node/${editNodeId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ children: childrenArray })
+        });
+
+        editModal.style.display = 'none';
+        overlay.style.display = 'none';
+        fetchTree();
+    } catch(e) {
+        alert('Failed to save subtree. Check JSON format.');
+        console.error(e);
+    }
+};
+
+// --- LLM Prompt Modal Logic ---
+const promptModal = document.getElementById('prompt-modal');
+const promptTextarea = document.getElementById('prompt-textarea');
+
+function openPromptModal(node, fullPath) {
+    const pathText = fullPath.join(" > ");
+    const nodeName = node.name;
+
+    const promptText = `
+Generate 10 YouTube search recommendations about the topic "${nodeName}".
+Context tree: "${pathText}".
+Focus on high-quality, relevant content suitable for learning.
+Format output as a numbered list of search queries.
+    `.trim();
+
+    promptTextarea.value = promptText;
+    promptModal.style.display = 'block';
+    overlay.style.display = 'block';
+}
+
+document.getElementById('close-prompt-btn').onclick = () => {
+    promptModal.style.display = 'none';
+    overlay.style.display = 'none';
+};
+
+document.getElementById('copy-prompt-btn').onclick = () => {
+    promptTextarea.select();
+    document.execCommand('copy');
+    alert('Prompt copied to clipboard!');
+};
+
+// --- Tree JSON Prompt Modal Logic ---
+const treePromptModal = document.getElementById('tree-prompt-modal');
+const treePromptTextarea = document.getElementById('tree-prompt-textarea');
+
+function openTreePromptModal(node, fullPath) {
+    const pathText = fullPath.join(" > ");
+    const nodeName = node.name;
+
+    const treePromptText = `
+Generate a comprehensive hierarchical tree structure for the subject "${nodeName}".  
+- Only include child nodes; do NOT include any parent nodes (e.g., "${pathText}").  
+- Represent the tree as a **valid JSON object**, where:  
+  - Each node is a key.  
+  - If a node has children, its value is an object containing its child nodes.  
+  - If a node has no children, its value is an empty array.  
+- The tree should reflect logical relationships and domain structure:  
+  - Group related subfields together.  
+  - Include major sub-disciplines and, where relevant, sub-sub-disciplines.  
+  - Include classical, modern, and emerging areas within the field.  
+  - Depth should be 2–3 levels to capture meaningful hierarchy.  
+- Do not include metadata, comments, or extra text—output only the JSON.
+`.trim();
+
+
+    treePromptTextarea.value = treePromptText;
+    treePromptModal.style.display = 'block';
+    overlay.style.display = 'block';
+}
+
+document.getElementById('close-tree-prompt-btn').onclick = () => {
+    treePromptModal.style.display = 'none';
+    overlay.style.display = 'none';
+};
+
+document.getElementById('copy-tree-prompt-btn').onclick = () => {
+    treePromptTextarea.select();
+    document.execCommand('copy');
+    alert('Tree JSON prompt copied to clipboard!');
+};
+
+fetchTree();
+</script>
+</body>
+</html>

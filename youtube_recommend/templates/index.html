@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>YouTube Video Data</title>
+  <style>
+    body { 
+      font-family: "Segoe UI", Arial, sans-serif; 
+      margin: 20px; 
+      background: #f3f4f6; 
+      color: #111; 
+      position: relative;
+    }
+    h1 { 
+      text-align: center; 
+      margin-bottom: 20px; 
+      font-size: 2em; 
+      color: #222; 
+    }
+    .search-container {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #search-input {
+      width: 300px;
+      padding: 8px 12px;
+      font-size: 1em;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    #recent-searches {
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #555;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .video-card { 
+      background: #fff; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 10px rgba(0,0,0,.1);
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    .video-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 14px rgba(0,0,0,.15);
+    }
+    .thumbnail { width: 100%; height: auto; display: block; }
+    .meta { padding: 15px; flex: 1; display: flex; flex-direction: column; }
+    .meta h2 { margin: 0 0 10px; font-size: 1.1em; line-height: 1.3; flex-shrink: 0; }
+    .meta h2 a { text-decoration: none; color: #111; }
+    .meta h2 a:hover { color: #0066cc; }
+    .description { font-size: 0.9em; line-height: 1.4; color: #444; margin-bottom: 12px; flex-grow: 1; }
+    .stats { color: #555; font-size: 0.85em; margin-top: auto; }
+
+    /* Reload icon */
+    #reload-icon {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+      fill: #111;
+    }
+    #reload-icon:hover {
+      transform: rotate(90deg);
+      fill: #0066cc;
+    }
+
+    #nodes-icon {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      fill: #111;
+      stroke: #111;
+      transition: fill 0.2s ease, stroke 0.2s ease, transform 0.2s ease;
+    }
+
+    #nodes-icon:hover {
+      fill: #0066cc;
+      stroke: #0066cc;
+      transform: scale(1.1);
+    }
+
+    #nodes-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    #home-icon {
+      position: fixed;
+      top: 20px;
+      left: 70px; /* position it right of nodes icon */
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      fill: #111;
+      stroke: #111;
+      transition: fill 0.2s ease, stroke 0.2s ease, transform 0.2s ease;
+    }
+
+    #home-icon:hover {
+      fill: #0066cc;
+      stroke: #0066cc;
+      transform: scale(1.1);
+    }
+
+    #home-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+
+  </style>
+</head>
+<body>
+  <h1>YouTube Videos</h1>
+
+  <!-- Nodes icon -->
+  <a href="/nodes" id="nodes-icon">
+    <svg viewBox="0 0 24 24">
+      <circle cx="6" cy="6" r="2"/>
+      <circle cx="18" cy="6" r="2"/>
+      <circle cx="12" cy="18" r="2"/>
+      <line x1="6" y1="6" x2="12" y2="18" stroke-width="2"/>
+      <line x1="18" y1="6" x2="12" y2="18" stroke-width="2"/>
+    </svg>
+  </a>
+
+  <!-- Home icon -->
+  <a href="/" id="home-icon">
+    <svg viewBox="0 0 24 24">
+      <path d="M12 3l9 8h-3v9h-12v-9h-3l9-8z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </a>
+
+
+  <!-- Reload icon -->
+  <svg id="reload-icon" viewBox="0 0 24 24">
+    <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 .34-.03.67-.08 1h2.02c.05-.33.06-.66.06-1 0-4.42-3.58-8-8-8zm-6 7c0-.34.03-.67.08-1H4.06c-.05.33-.06.66-.06 1 0 4.42 3.58 8 8 8v3l4-4-4-4v3c-3.31 0-6-2.69-6-6z"/>
+  </svg>
+
+  <div class="search-container">
+    <input type="text" id="search-input" placeholder="Search videos...">
+    <div id="recent-searches"></div>
+  </div>
+
+  <div class="grid" id="video-grid">
+    {% for video in videos %}
+      <div class="video-card">
+        <a href="{{ video.video_url }}" target="_blank">
+          <img class="thumbnail" src="{{ video.thumbnail_url }}" alt="Thumbnail">
+        </a>
+        <div class="meta">
+          <h2><a href="{{ video.video_url }}" target="_blank">{{ video.title }}</a></h2>
+          <p class="description">{{ video.description[:120] }}{% if video.description|length > 120 %}...{% endif %}</p>
+          <p class="stats">
+            {{ "{:,}".format(video.view_count) }} views • 
+            {{ "{:,}".format(video.like_count) }} likes • 
+            {{ "{:,}".format(video.comment_count) }} comments<br>
+            {{ video.channel_title }} • {{ video.published_at[:10] }} • 
+            Duration: 
+            {% set minutes = video.duration_seconds // 60 %}
+            {% set seconds = video.duration_seconds % 60 %}
+            {% if minutes >= 60 %}
+              {% set hours = minutes // 60 %}
+              {% set minutes = minutes % 60 %}
+              {{ "%d:%02d:%02d"|format(hours, minutes, seconds) }}
+            {% else %}
+              {{ "%d:%02d"|format(minutes, seconds) }}
+            {% endif %}
+          </p>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+<script>
+const searchInput = document.getElementById("search-input");
+const videoGrid = document.getElementById("video-grid");
+const recentSearchesDiv = document.getElementById("recent-searches");
+const reloadIcon = document.getElementById("reload-icon");
+
+// Track recent searches in memory
+let recentSearches = [];
+
+// Helper to render recent searches as clickable items
+function renderRecentSearches() {
+  recentSearchesDiv.innerHTML = "";
+  if (recentSearches.length === 0) return;
+
+  const label = document.createElement("span");
+  label.textContent = "Recent searches: ";
+  recentSearchesDiv.appendChild(label);
+
+  recentSearches.forEach((query, index) => {
+    const btn = document.createElement("button");
+    btn.textContent = query;
+    btn.style.margin = "0 5px";
+    btn.style.padding = "2px 6px";
+    btn.style.fontSize = "0.9em";
+    btn.style.cursor = "pointer";
+    btn.style.border = "1px solid #ccc";
+    btn.style.borderRadius = "4px";
+    btn.style.background = "#fff";
+    btn.addEventListener("click", () => performSearch(query));
+    recentSearchesDiv.appendChild(btn);
+  });
+}
+
+// Fetch recent searches from server on page load
+window.addEventListener("DOMContentLoaded", () => {
+  fetch("recent_searches")
+    .then(res => res.json())
+    .then(data => {
+      recentSearches = data || [];
+      renderRecentSearches();
+    })
+    .catch(err => console.error("Failed to fetch recent searches:", err));
+});
+
+// Function to perform search
+function performSearch(query) {
+  searchInput.value = query;
+
+  // Update recent searches
+  recentSearches.unshift(query);
+  recentSearches = [...new Set(recentSearches)].slice(0, 5);
+  renderRecentSearches();
+
+  // Fetch search results
+  fetch(`search?q=${encodeURIComponent(query)}`)
+    .then(res => res.json())
+    .then(data => {
+      videoGrid.innerHTML = "";
+      data.forEach(video => {
+        const minutes = Math.floor(video.duration_seconds / 60);
+        const seconds = video.duration_seconds % 60;
+        const duration = minutes >= 60
+          ? `${Math.floor(minutes/60)}:${minutes%60}:${seconds}`
+          : `${minutes}:${seconds.toString().padStart(2,'0')}`;
+
+        const card = document.createElement("div");
+        card.className = "video-card";
+        card.innerHTML = `
+          <a href="${video.video_url}" target="_blank">
+            <img class="thumbnail" src="${video.thumbnail_url}" alt="Thumbnail">
+          </a>
+          <div class="meta">
+            <h2><a href="${video.video_url}" target="_blank">${video.title}</a></h2>
+            <p class="description">${video.description.substring(0, 120)}${video.description.length > 120 ? "..." : ""}</p>
+            <p class="stats">
+              ${video.view_count.toLocaleString()} views • 
+              ${video.like_count.toLocaleString()} likes • 
+              ${video.comment_count.toLocaleString()} comments<br>
+              ${video.channel_title} • ${video.published_at.slice(0,10)} • 
+              Duration: ${duration}
+            </p>
+          </div>
+        `;
+        videoGrid.appendChild(card);
+      });
+    });
+}
+
+// Enter key triggers search
+searchInput.addEventListener("keypress", function(event) {
+  if (event.key === "Enter") {
+    const query = searchInput.value.trim();
+    if (!query) return;
+    performSearch(query);
+  }
+});
+
+// Reload page when icon clicked
+reloadIcon.addEventListener("click", () => {
+  location.reload();
+});
+</script>
+
+</body>
+</html>
