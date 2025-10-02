@@ -1,6 +1,6 @@
 # YouTube Recommender
 
-A personalized YouTube video recommender that leverages **knowledge graphs** and **LLM-generated queries** to explore topics and discover relevant videos.
+A personalized YouTube video recommender that leverages **knowledge trees** and **LLM-generated queries** to explore topics and discover relevant videos.
 
 ---
 
