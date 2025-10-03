@@ -1,6 +1,6 @@
 # YouTube Recommender
 
-A personalized YouTube video recommender that leverages **knowledge graphs** and **LLM-generated queries** to explore topics and discover relevant videos.
+A personalized YouTube video recommender that leverages **knowledge trees** and **LLM-generated queries** to explore topics and discover relevant videos.
 
 ---
 
@@ -27,7 +27,7 @@ The app has **two main pages**:
 
 ### 1. Nodes Page
 
-- Uses a **knowledge graph** to explore topics and expand information.
+- Uses a **knowledge tree** to explore topics and expand information.
 - Click a node to **copy an LLM prompt** to expand the graph.
 - From a node, you can also generate multiple queries to explore the subject further.
 - Once you select a search prompt, navigate to the **Videos Page** using the top-left icon.
