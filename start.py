@@ -203,7 +203,7 @@ if __name__ == "__main__":
 
     open_webbrowser("http://127.0.0.1:5005/videos")
 
-    start_file(start_file_path, ["flask", "SQLAlchemy", "google-api-python-client"])
+    start_file(start_file_path, ["flask", "SQLAlchemy", "google-api-python-client", "openai"])
 
     
         

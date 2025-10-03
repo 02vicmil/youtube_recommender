@@ -133,6 +133,19 @@
     <textarea id="prompt-textarea" readonly></textarea><br><br>
     <button id="copy-prompt-btn">Copy to Clipboard</button>
     <button id="close-prompt-btn">Close</button>
+
+    <!-- Inside #prompt-modal -->
+    <button id="run-prompt-btn">Run Prompt</button>
+    <div id="prompt-result" style="
+        margin-top: 10px;
+        padding: 10px;
+        background: #f0f0f0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        white-space: pre-wrap;
+        max-height: 300px;
+        overflow-y: auto;
+    "></div>
 </div>
 
 <!-- Tree JSON Prompt Modal -->
@@ -141,6 +154,19 @@
     <textarea id="tree-prompt-textarea" readonly></textarea><br><br>
     <button id="copy-tree-prompt-btn">Copy to Clipboard</button>
     <button id="close-tree-prompt-btn">Close</button>
+
+    <!-- Inside #tree-prompt-modal -->
+    <button id="run-tree-prompt-btn">Run Tree Prompt</button>
+    <div id="tree-prompt-result" style="
+        margin-top: 10px;
+        padding: 10px;
+        background: #f0f0f0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        white-space: pre-wrap;
+        max-height: 300px;
+        overflow-y: auto;
+    "></div>
 </div>
 
 <script>
@@ -361,6 +387,81 @@ document.getElementById('copy-tree-prompt-btn').onclick = () => {
     document.execCommand('copy');
     alert('Tree JSON prompt copied to clipboard!');
 };
+
+document.getElementById('run-prompt-btn').onclick = async () => {
+    const prompt = promptTextarea.value.trim();
+    const resultDiv = document.getElementById('prompt-result');
+
+    if (!prompt) {
+        resultDiv.textContent = "No prompt to run.";
+        return;
+    }
+
+    resultDiv.textContent = "Running prompt...";
+
+    try {
+        const response = await fetch('/nodes/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            resultDiv.textContent = data.response;  // Output from ChatGPT
+        } else {
+            resultDiv.textContent = `Error: ${data.error || 'Unknown error'}`;
+        }
+    } catch (e) {
+        resultDiv.textContent = `Error: ${e.message}`;
+        console.error(e);
+    }
+};
+
+function extractJsonFromString(str) {
+    const firstBrace = str.indexOf('{');
+    const lastBrace = str.lastIndexOf('}');
+
+    if (firstBrace === -1 || lastBrace === -1 || firstBrace > lastBrace) {
+        // No valid braces found
+        return null;
+    }
+
+    return str.slice(firstBrace, lastBrace + 1);
+}
+
+document.getElementById('run-tree-prompt-btn').onclick = async () => {
+    const prompt = treePromptTextarea.value.trim();
+    const resultDiv = document.getElementById('tree-prompt-result');
+
+    if (!prompt) {
+        resultDiv.textContent = "No prompt to run.";
+        return;
+    }
+
+    resultDiv.textContent = "Running prompt...";
+
+    try {
+        const response = await fetch('/nodes/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            resultDiv.textContent = extractJsonFromString(data.response);  // Output from ChatGPT
+        } else {
+            resultDiv.textContent = `Error: ${data.error || 'Unknown error'}`;
+        }
+    } catch (e) {
+        resultDiv.textContent = `Error: ${e.message}`;
+        console.error(e);
+    }
+};
+
 
 fetchTree();
 </script>

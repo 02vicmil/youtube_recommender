@@ -4,7 +4,10 @@ import pathlib
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[0]))
 from sqlalchemy.orm import joinedload
 from tree_db_helper import init_db, Node, insert_tree, SessionLocal, create_database_if_not_exists
+from chatgpt_helper import ask_chatgpt
+
 import os
+import time
 
 def node_to_dict(node):
     """Convert a Node and its children recursively to a dictionary"""
@@ -14,6 +17,8 @@ def node_to_dict(node):
         "children": [node_to_dict(child) for child in node.children]
     }
 
+# Store last request time
+last_request_time = 0
 
 def setup_routes(app, namespace="/nodes", templates_folder=None):
     """Register all routes under a namespace."""
@@ -41,27 +46,25 @@ def setup_routes(app, namespace="/nodes", templates_folder=None):
             return jsonify({"error": "Node not found"}), 404
         return jsonify(node_to_dict(node))
 
-    @bp.route(f"/node", methods=["POST"])
-    def add_node():
-        """
-        Add a subtree to a node (or as root if parent_id is None)
-        JSON format:
-        {
-            "parent_id": 1,       # optional
-            "tree": { "name": "New Node", "children": [...] }
-        }
-        """
-        session = SessionLocal()
-        data = request.json
-        parent_id = data.get("parent_id")
-        tree = data.get("tree")
-        if not tree or "name" not in tree:
-            return jsonify({"error": "Tree must have a 'name'"}), 400
+    @bp.route("/chat", methods=["POST"])
+    def chat_with_gpt():
+        global last_request_time
 
-        parent = session.query(Node).get(parent_id) if parent_id else None
-        insert_tree(session, tree, parent=parent)
-        session.commit()
-        return jsonify({"message": "Node(s) added successfully"}), 201
+        # Rate limiting: 1 request per second
+        now = time.time()
+        if now - last_request_time < 1:
+            return jsonify({"error": "Rate limit exceeded. Try again in a moment."}), 429
+
+        data = request.json
+        prompt = data.get("prompt")
+        if not prompt:
+            return jsonify({"error": "No prompt provided"}), 400
+
+        last_request_time = now  # Update last request time
+
+        # Call ChatGPT
+        response = ask_chatgpt(prompt)
+        return jsonify({"response": response}), 200
 
     @bp.route(f"/node/<int:node_id>", methods=["DELETE"])
     def delete_node(node_id):
