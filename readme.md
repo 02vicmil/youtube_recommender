@@ -66,7 +66,7 @@ The app has **two main pages**:
 
 > Note: Without an API key, YouTube may flag your IP as a bot.
 
-For full setup instructions, see the [YouTube API Key Tutorial](./youtube-api-key-tutorial.md).
+For full setup instructions, see the [YouTube API Key Tutorial](./youtube_api_key_tutorial.md).
 
 ### Optional ChatGPT Integration
 
