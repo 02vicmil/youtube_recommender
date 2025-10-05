@@ -1,7 +1,5 @@
 config.json
 __pycache__
-youtube_recommend/data
-youtube_recommend/raw_data
 videos.db
 nodes.db
 depr/
