@@ -66,6 +66,8 @@ The app has **two main pages**:
 
 > Note: Without an API key, YouTube may flag your IP as a bot.
 
+For full setup instructions, see the [YouTube API Key Tutorial](./youtube-api-key-tutorial.md).
+
 ### Optional ChatGPT Integration
 
 - You can integrate an LLM via OpenAI's API by creating `nodes/config.json`:
